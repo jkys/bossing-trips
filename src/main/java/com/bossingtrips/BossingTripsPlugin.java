@@ -50,13 +50,13 @@ public class BossingTripsPlugin extends Plugin
 
 		String currentPlayer = client.getLocalPlayer().getName();
 		String recipient = hitsplatApplied.getActor().getName();
-		if (Objects.equals(recipient, currentPlayer)) {
+		if (Objects.requireNonNull(recipient).equalsIgnoreCase(currentPlayer)) {
 			int damageTaken = hitsplatApplied.getHitsplat().getAmount();
 			tripManager.damageTaken(damageTaken);
 		}
 
 		// TODO: Need to find way to check who applied damage and apply that to the trip.
-		if (tripManager.getCurrentBoss().equalsIgnoreCase(recipient)) {
+		if (tripManager.getPrettyBossName().equalsIgnoreCase(recipient)) {
 			int damageTaken = hitsplatApplied.getHitsplat().getAmount();
 			tripManager.damageGiven(damageTaken);
 		}
