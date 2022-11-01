@@ -2,7 +2,7 @@ package com.bossingtrips;
 
 import com.bossingtrips.managers.CommandManager;
 import com.bossingtrips.managers.TripManager;
-import com.bossingtrips.models.TripInfo;
+import com.bossingtrips.models.Trip;
 import com.bossingtrips.models.commands.Command;
 import com.google.inject.Provides;
 import com.google.inject.name.Named;
@@ -34,37 +34,26 @@ public class BossingTripsPlugin extends Plugin
 	@Inject
 	private TripManager tripManager;
 
-	@Override
-	public void shutDown() {
-		tripManager.endTrip();
-	}
+	@Inject
+	private BossingTripsConfig config;
 
-	/**
-	 * Used to calculate how much damage the user and their team has dealt and received.
-	 */
 	@Subscribe
 	public void onHitsplatApplied(HitsplatApplied hitsplatApplied) {
-		if (!tripManager.isOngoingTrip()) {
+		if (!tripManager.isTripOngoing()) {
 			return;
 		}
-
-		String currentPlayer = client.getLocalPlayer().getName();
 		String recipient = hitsplatApplied.getActor().getName();
-		if (Objects.requireNonNull(recipient).equalsIgnoreCase(currentPlayer)) {
+		if (Objects.requireNonNull(recipient).equalsIgnoreCase(client.getLocalPlayer().getName())) {
 			int damageTaken = hitsplatApplied.getHitsplat().getAmount();
 			tripManager.damageTaken(damageTaken);
 		}
 
-		// TODO: Need to find way to check who applied damage and apply that to the trip.
-		if (tripManager.getPrettyBossName().equalsIgnoreCase(recipient)) {
-			int damageTaken = hitsplatApplied.getHitsplat().getAmount();
-			tripManager.damageGiven(damageTaken);
+		// Currently just sets the start time of the trip
+		if (tripManager.getTrip().getHumanBossName().equalsIgnoreCase(recipient)) {
+			tripManager.bossHit();
 		}
 	}
 
-	/**
-	 * This occurs when any command is interred into RuneLite, it will execute the overridden execute() function in each of the implementations of {@link Command}.
-	 */
 	@Subscribe
 	public void onCommandExecuted(CommandExecuted commandExecuted)
 	{
@@ -84,54 +73,45 @@ public class BossingTripsPlugin extends Plugin
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", e.getMessage(), null);
 		}
 	}
-
-	/**
-	 * This usually occurs when a user teleports away or is killed.
-	 * <p>
-	 * TODO: Look into other ways to possibly check if a trip should be reset.
-	 */
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged gameStateChanged) {
-		if (gameStateChanged.getGameState().equals(GameState.LOGGED_IN) && tripManager.isOngoingTrip()) {
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", String.format("%s trip completed automatically due to state change.", tripManager.getPrettyBossName()), null);
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", tripManager.getTripInformation(), null);
-			tripManager.resetTrip();
+		if (gameStateChanged.getGameState().equals(GameState.LOGGED_IN) && tripManager.isTripOngoing()) {
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", String.format("%s trip completed automatically due to state change.", tripManager.getTrip().getHumanBossName()), null);
+			tripManager.endTrip(client);
+			tripManager.startNewTrip();
 		}
 
 	}
 
-	/**
-	 * Used to determine the amount of kills from a user and their team.
-	 * @param npcDespawned {@link NpcDespawned}
-	 */
 	@Subscribe
 	public void onNpcDespawned(NpcDespawned npcDespawned) {
-		if (!tripManager.isOngoingTrip()) {
+		if (!tripManager.isTripOngoing()) {
 			return;
 		}
 
 		if (wasBossKilled(npcDespawned)) {
-			TripInfo tripInfo = tripManager.getTripInfo();
+			int damageTaken = tripManager.getTrip().getCurrentDamageTaken();
 
 			tripManager.completedKill();
 
+			if (config.printOnKill()) {
+				if (damageTaken > 0) {
+					String damageTakenMessage = String.format("%d damage taken", damageTaken);
+					client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", damageTakenMessage, null);
+				}
 
-			if (tripInfo.getCurrentDamageGiven() > 0) {
-				String damageTakenMessage = String.format("%d damage taken this kill.", tripInfo.getCurrentDamageTaken());
-				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", damageTakenMessage, null);
+
+				final int killCount = tripManager.getTrip().getKillCount();
+				String message = String.format("%s kill count: %d", tripManager.getTrip().getHumanBossName(), killCount);
+				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", message, null);
 			}
-
-
-			String message = String.format("%s trip kill count is %d", tripManager.getPrettyBossName(), tripInfo.getKillCount());
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", message, null);
-
 		}
 	}
 
 	private boolean wasBossKilled(NpcDespawned npcDespawned) {
 		// TODO: May be worth checking the type of hit splat which was received
-		String npcNameWithoutSpaces = npcDespawned.getNpc().getName().replaceAll(" ", "_");
-		return npcDespawned.getActor().isDead() && tripManager.getCurrentBoss().equalsIgnoreCase(npcNameWithoutSpaces);
+		String npcNameWithoutSpaces = Objects.requireNonNull(npcDespawned.getNpc().getName()).replaceAll(" ", "_");
+		return npcDespawned.getActor().isDead() && tripManager.getTrip().getBoss().equalsIgnoreCase(npcNameWithoutSpaces);
 	}
 
 	@Provides
@@ -139,6 +119,7 @@ public class BossingTripsPlugin extends Plugin
 	{
 		return configManager.getConfig(BossingTripsConfig.class);
 	}
+
 
 	@Provides
 	@Named("TripManager")

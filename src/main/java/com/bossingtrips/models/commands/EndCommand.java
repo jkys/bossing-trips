@@ -14,14 +14,11 @@ public class EndCommand extends Command {
     }
     @Override
     public void execute() {
-        if (!tripManager.isOngoingTrip()) {
-            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "No trip currently.", null);
+        if (!tripManager.isTripOngoing()) {
+            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "There is no trip to end.", null);
             return;
         }
 
-        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", String.format("%s trip ended", tripManager.getPrettyBossName()), null);
-        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", tripManager.getTripInformation(), null);
-
-        tripManager.endTrip();
+        tripManager.endTrip(client);
     }
 }

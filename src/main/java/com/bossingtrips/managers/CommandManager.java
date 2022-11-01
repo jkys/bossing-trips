@@ -10,15 +10,12 @@ public class CommandManager {
     public static Command getCommandData(CommandExecuted command, Client client, TripManager tripManager) {
         switch (convertCommandType(command.getCommand())) {
             case START:
-                if (commandHasArument(command)) {
+                if (commandHasArgument(command)) {
                     String bossName = extractBossName(command);
                     return new StartCommand(client, tripManager, bossName);
                 } else {
                     throw new IllegalArgumentException("Missing boss name, please pass name of boss to start trip.");
                 }
-            // RESET and END do the same thing, set trip to 0 and print out the information of the trip
-            case RESET:
-                return new ResetCommand(client, tripManager);
             case END:
                 return new EndCommand(client, tripManager);
             case GET:
@@ -44,7 +41,7 @@ public class CommandManager {
         }
     }
 
-    private static boolean commandHasArument(CommandExecuted command) {
+    private static boolean commandHasArgument(CommandExecuted command) {
         return command.getArguments() != null && command.getArguments().length >= 1 && command.getArguments()[0] != null;
     }
 

@@ -15,11 +15,11 @@ public class GetCommand extends Command {
 
     @Override
     public void execute() {
-        if (!tripManager.isOngoingTrip()) {
+        if (!tripManager.isTripOngoing()) {
             client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "No trip currently.", null);
             return;
         }
 
-        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", tripManager.getTripInformation(), null);
+        tripManager.printTripInformation(client);
     }
 }

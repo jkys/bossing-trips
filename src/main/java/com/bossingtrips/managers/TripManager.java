@@ -1,99 +1,85 @@
 package com.bossingtrips.managers;
 
-import com.bossingtrips.models.TripInfo;
+import com.bossingtrips.models.Trip;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.text.WordUtils;
+import net.runelite.api.ChatMessageType;
+import net.runelite.api.Client;
 
 import javax.inject.Singleton;
-import java.util.HashMap;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 @Singleton
+@Getter
 @NoArgsConstructor
 public class TripManager {
-    final private HashMap<String, TripInfo> tripData = new HashMap<>();
-    private String currentBoss;
+    private Trip trip;
 
-    public String getCurrentBoss() {
-        return this.currentBoss;
+    public void createNewTrip(@NonNull final String bossName) {
+        this.trip = new Trip(bossName);
     }
 
-    public String getPrettyBossName() {
-        return WordUtils.capitalizeFully(this.currentBoss.replaceAll("_", " ").toLowerCase());
+    public void startNewTrip() {
+        this.trip = new Trip(trip.getBoss());
     }
 
-    public boolean isOngoingTrip() {
-        if (StringUtils.isEmpty(currentBoss)) {
+    public void bossHit() {
+        this.trip.startTrip();
+    }
+
+    public boolean isTripOngoing() {
+        if (trip == null) {
             return false;
         }
 
-        return tripData.get(currentBoss).isOngoingTrip();
+        return trip.getTripEnd() == null;
     }
 
+    public void endTrip(Client client) {
+        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", String.format("%s trip ended", trip.getHumanBossName()), null);
 
-    /**
-     * Starts a trip for a boss run, in the case that a trip is already ongoing, this will reset the trip.
-     * @param bossName name of the boss to start a trip for (use _ in the case of spaces)
-     */
-    public void startTrip(@NonNull String bossName) {
-        currentBoss = bossName.toUpperCase();
-        tripData.put(currentBoss, new TripInfo());
+        printTripInformation(client);
+
+        trip.endTrip();
     }
 
-    public void endTrip() {
-        TripInfo tripInfo = tripData.get(currentBoss);
-        tripInfo.endTrip();
+    public void printTripInformation(Client client) {
+        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", String.format("--- %s Trip ---", trip.getHumanBossName()), null);
+        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", String.format("Kills: %d ", trip.getKillCount()), null);
+        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", String.format("Damage Taken (sum): %d ", trip.getDamageTaken()), null);
+
+        final int averageDamage = trip.getKillCount() == 0 ? 0 : trip.getDamageTaken()/trip.getKillCount();
+        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", String.format("Damage Taken (avg): %d ", averageDamage), null);
+
+        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", String.format("Trip Duration: %s", getHumanReadableTripDuration()), null);
     }
 
-    public TripInfo getTripInfo() {
-        return tripData.getOrDefault(currentBoss, null);
+    public void completedKill() {
+        trip.killCompleted();
     }
 
-    public TripInfo completedKill() {
-        return tripData.computeIfPresent(currentBoss, (notUsed, tripInfo) -> {
-            tripInfo.killCompleted();
-            return tripInfo;
-        });
+    public void damageTaken(final int damageTaken) {
+        trip.damageTaken(damageTaken);
     }
 
-    public void damageTaken(int damageTaken) {
-        tripData.computeIfPresent(currentBoss, (notUsed, tripInfo) -> {
-            tripInfo.damageTaken(damageTaken);
-            return tripInfo;
-        });
-    }
-
-    public void damageGiven(int damageTaken) {
-        tripData.computeIfPresent(currentBoss, (notUsed, tripInfo) -> {
-            tripInfo.damageGiven(damageTaken);
-            return tripInfo;
-        });
-    }
-
-    public void resetTrip() {
-        TripInfo tripInfo = tripData.get(currentBoss);
-        tripInfo.resetTrip();
-    }
-
-    public String getTripInformation() {
-        if (!isOngoingTrip()) {
-            return null;
+    private String getHumanReadableTripDuration() {
+        if (trip.getTripStart() == null) {
+            return String.format("%02d:%02d:%02d", 0, 0, 0);
         }
 
-        TripInfo tripInfo = getTripInfo();
+        LocalDateTime lastKnownTripTime = isTripOngoing() ? LocalDateTime.now() : trip.getTripEnd();
+        LocalDateTime tempDateTime = LocalDateTime.from(trip.getTripStart());
 
-        StringBuilder messageBuilder = new StringBuilder();
+        long hours = tempDateTime.until(lastKnownTripTime, ChronoUnit.HOURS);
+        tempDateTime = tempDateTime.plusHours(hours);
 
-        messageBuilder.append(String.format("Kills: %d ", tripInfo.getKillCount()));
-        messageBuilder.append(String.format("Damage Taken: %d ", tripInfo.getTotalDamageTaken()));
-        messageBuilder.append(String.format("Damage Given: %d ", tripInfo.getTotalDamageGiven()));
+        long minutes = tempDateTime.until(lastKnownTripTime, ChronoUnit.MINUTES);
+        tempDateTime = tempDateTime.plusMinutes(minutes);
 
-        if (tripInfo.getCurrentDamageGiven() != 0) {
-            messageBuilder.append(String.format("Current Damage Given: %d ", tripInfo.getCurrentDamageGiven()));
-            messageBuilder.append(String.format("Current Damage Taken: %d", tripInfo.getCurrentDamageTaken()));
-        }
+        long seconds = tempDateTime.until(lastKnownTripTime, ChronoUnit.SECONDS);
 
-        return messageBuilder.toString();
+        return String.format("%02d:%02d:%02d", hours, minutes, seconds);
     }
 }

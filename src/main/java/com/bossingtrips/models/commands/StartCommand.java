@@ -20,7 +20,12 @@ public class StartCommand extends Command {
 
     @Override
     public void execute() {
-        tripManager.startTrip(this.bossName);
-        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", String.format("%s trip started", tripManager.getPrettyBossName()), null);
+        if (tripManager.isTripOngoing()) {
+            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "End the current trip before starting a new one.", null);
+            return;
+        }
+
+        tripManager.createNewTrip(this.bossName);
+        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", String.format("%s trip started.", tripManager.getTrip().getHumanBossName()), null);
     }
 }
