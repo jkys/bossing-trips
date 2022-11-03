@@ -29,12 +29,18 @@ public class TripManager {
         this.trip.startTrip();
     }
 
+    // Trip is considered "going" when it is initialized, not just when first hit occurs
     public boolean isTripOngoing() {
         if (trip == null) {
             return false;
         }
 
         return trip.getTripEnd() == null;
+    }
+
+    // Trip starts when first hit occurs
+    public boolean hasTripStarted() {
+        return trip != null && trip.getTripStart() != null;
     }
 
     public void endTrip(Client client) {
@@ -48,7 +54,6 @@ public class TripManager {
     public void printTripInformation(Client client) {
         client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", String.format("--- %s Trip ---", trip.getHumanBossName()), null);
         client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", String.format("Kills: %d ", trip.getKillCount()), null);
-        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", String.format("Damage Taken (sum): %d ", trip.getDamageTaken()), null);
 
         final int averageDamage = trip.getKillCount() == 0 ? 0 : trip.getDamageTaken()/trip.getKillCount();
         client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", String.format("Damage Taken (avg): %d ", averageDamage), null);

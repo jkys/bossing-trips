@@ -2,7 +2,6 @@ package com.bossingtrips;
 
 import com.bossingtrips.managers.CommandManager;
 import com.bossingtrips.managers.TripManager;
-import com.bossingtrips.models.Trip;
 import com.bossingtrips.models.commands.Command;
 import com.google.inject.Provides;
 import com.google.inject.name.Named;
@@ -75,7 +74,7 @@ public class BossingTripsPlugin extends Plugin
 	}
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged gameStateChanged) {
-		if (gameStateChanged.getGameState().equals(GameState.LOGGED_IN) && tripManager.isTripOngoing()) {
+		if (gameStateChanged.getGameState().equals(GameState.LOGGED_IN) && tripManager.hasTripStarted()) {
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", String.format("%s trip completed automatically due to state change.", tripManager.getTrip().getHumanBossName()), null);
 			tripManager.endTrip(client);
 			tripManager.startNewTrip();
